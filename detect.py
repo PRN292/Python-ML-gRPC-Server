@@ -32,8 +32,8 @@ class FaceRecognition:
     def process_image(self, image_as_array):
         matches = []
         # find faces that match
-        #face_locations = self.yolo_detect.face_detect(image_as_array)
-        face_locations = self.detect_face(image_as_array)
+        face_locations = self.yolo_detect.face_detect(image_as_array)
+        #face_locations = self.detect_face(image_as_array)
         face_encodings = face_recognition.face_encodings(image_as_array, face_locations)
         for face_encoding in face_encodings:
             match = face_recognition.compare_faces(self.__encodings, face_encoding)

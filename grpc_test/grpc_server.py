@@ -10,7 +10,7 @@ import uuid
 FRAME_PER_PROCESS = 2
 RESIZE_FACTOR = 4
 
-labels_path = "D:\Programing\FaceRegconizing\main\yolo-custom\coco.names"
+labels_path = "D:\Programing\FaceRegconizing\main\yolo-custom\obj.names"
 weights_path = "D:\Programing\FaceRegconizing\main\yolo-custom\yolov4-tiny-custom_final_mask.weights"
 config_path = "D:\Programing\FaceRegconizing\main\yolo-custom\yolov4-tiny-custom-mask.cfg"
 detect = detect.FaceRecognition(weights_path, config_path, labels_path)
