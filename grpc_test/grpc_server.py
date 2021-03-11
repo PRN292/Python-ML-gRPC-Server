@@ -6,25 +6,29 @@ import cv2
 from main import detect, image_utils, firebase
 import base64
 import uuid
+import time
+import queue
 
-FRAME_PER_PROCESS = 2
+FRAME_PER_PROCESS = 10
 RESIZE_FACTOR = 4
 
-labels_path = "D:\Programing\FaceRegconizing\main\yolo-custom\obj.names"
-weights_path = "D:\Programing\FaceRegconizing\main\yolo-custom\yolov4-tiny-custom_final_mask.weights"
-config_path = "D:\Programing\FaceRegconizing\main\yolo-custom\yolov4-tiny-custom-mask.cfg"
+labels_path = "..\yolo-custom\obj.names"
+weights_path = "..\yolo-custom\yolov4-tiny-custom_final_mask.weights"
+config_path = "..\yolo-custom\yolov4-tiny-custom-mask.cfg"
 detect = detect.FaceRecognition(weights_path, config_path, labels_path)
 firebase_object = firebase.FireBase(
-    'D:\Programing\FaceRegconizing\strangerdetection-firebase-adminsdk-ndswy-371433d43f.json',
+    '..\..\strangerdetection-firebase-adminsdk-ndswy-371433d43f.json',
     'strangerdetection.appspot.com')
 
 detect.set_encodings(firebase_object.get_all_encoding_value())
 
 
+
+
 def process_frame(frame):
-    small_frame = cv2.resize(frame, (0, 0), fx=1 / RESIZE_FACTOR, fy=1 / RESIZE_FACTOR)
-    result = detect.process_image(small_frame)
-    return result
+    small_frame = cv2.resize(frame, (0, 0), fx=1/RESIZE_FACTOR, fy=1/RESIZE_FACTOR)
+    result, face_encodings = detect.process_image(small_frame)
+    return result, face_encodings
 
 
 def draw_frame(frame, detect_info):
@@ -47,6 +51,10 @@ def draw_frame(frame, detect_info):
 
 
 class ProcessImageService(image_pb2_grpc.ProcessImageServicer):
+    def __init__(self, pool):
+        super(ProcessImageService, self).__init__()
+        self.pool = pool
+
     def ProcessImage(self, request, context):
         video_capture = cv2.VideoCapture(0)
         if not video_capture.isOpened():
@@ -56,10 +64,12 @@ class ProcessImageService(image_pb2_grpc.ProcessImageServicer):
         while True:
             ret, frame = video_capture.read()
             if i % FRAME_PER_PROCESS == 0:
-                result = process_frame(frame)
+                result, face_encodings = process_frame(frame)
             i += 1
             frame = draw_frame(frame, result)
-            success, code = cv2.imencode('.png', frame)
+            small_frame = cv2.resize(frame, (0, 0), fx=1/RESIZE_FACTOR, fy=1/RESIZE_FACTOR)
+            encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 90]
+            success, code = cv2.imencode('.jpg', small_frame, encode_param)
             base64_string = str(base64.b64encode(code))[2:-1]
             yield image_pb2.ProcessImageReply(image=base64_string, result=str(result))
 
@@ -85,10 +95,12 @@ class ProcessImageService(image_pb2_grpc.ProcessImageServicer):
 
 
 def serve():
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=4))
-    server.add_insecure_port('[::]:50051')
+    pool = futures.ThreadPoolExecutor(max_workers=16)
+    servicer = ProcessImageService(pool)
+    server = grpc.server(pool)
+    server.add_insecure_port('[::]:50052')
     image_pb2_grpc.add_ProcessImageServicer_to_server(
-        servicer=ProcessImageService(), server=server
+        servicer=servicer, server=server
     )
     server.start()
     server.wait_for_termination()

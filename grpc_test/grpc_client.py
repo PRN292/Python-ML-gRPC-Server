@@ -5,14 +5,20 @@ import cv2
 from main import image_utils
 import base64
 
+RESIZE_FACTOR = 4
 
 def detect_image(stub):
     responses = stub.ProcessImage(image_pb2.ProcessImageRequest(id="123"))
+    check = True
     for response in responses:
         base64 = response.image
         frame = image_utils.parse_b64_string_to_image_array(base64)
         print(response.result)
-        cv2.imshow('frame', frame)
+        large_frame = cv2.resize(frame, (0, 0), fx=RESIZE_FACTOR, fy=RESIZE_FACTOR)
+        cv2.imshow('frame', large_frame)
+        if check:
+            cv2.imwrite('test.png', frame)
+            check = False
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
@@ -34,7 +40,7 @@ def delete_encoding(stub):
 
 
 def run():
-    with grpc.insecure_channel("localhost:50051") as channel:
+    with grpc.insecure_channel("localhost:50052") as channel:
         stub = image_pb2_grpc.ProcessImageStub(channel)
         detect_image(stub)
         # create_encoding(stub)
